@@ -164,6 +164,51 @@
     margin-top: 8px; padding: 16px 44px; border-radius: 18px; border:none;
     background: var(--ink); color:#fff; font-size:19px; font-weight:800; cursor:pointer;
   }
+  .result-actions{ display:flex; gap: 12px; }
+  .ghost-btn{
+    padding: 16px 32px; border-radius: 18px; border: 2px solid var(--paper-line);
+    background: #fff; color: var(--ink-soft); font-size:17px; font-weight:700; cursor:pointer;
+  }
+
+  /* player select */
+  #playerSelect{ align-items:center; justify-content:center; text-align:center; gap: 26px; }
+  #playerSelect p{ color: var(--ink-soft); font-size: 16px; margin:0; }
+  .player-list{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; max-width: 640px; }
+  .player-card{
+    padding: 18px 26px; border-radius: 18px; border: 3px solid var(--paper-line);
+    background: var(--card); font-size: 19px; font-weight:800; cursor:pointer; min-width: 120px;
+  }
+  .player-card:active{ transform: scale(.96); }
+  .add-player-row{ display:flex; gap:10px; align-items:center; }
+  .add-player-row input{
+    font-family: inherit; font-size: 18px; padding: 12px 16px; border-radius: 14px;
+    border: 2px solid var(--paper-line); width: 200px; text-align:center;
+  }
+  .add-player-btn{
+    padding: 12px 22px; border-radius: 14px; border:none; background: var(--ok);
+    color:#fff; font-size:17px; font-weight:700; cursor:pointer;
+  }
+  .player-badge{ font-size: 14px; color: var(--ink-soft); }
+  .player-badge b{ color: var(--ink); }
+  .change-player-btn{
+    padding: 6px 14px; border-radius: 10px; border: 2px solid var(--paper-line);
+    background:#fff; font-size: 12px; color: var(--ink-soft); cursor:pointer; margin-left:6px;
+  }
+
+  /* history */
+  #history{ align-items:center; justify-content:center; text-align:center; gap: 18px; }
+  .history-summary{ display:flex; gap: 24px; }
+  .history-summary div{ font-size: 15px; color: var(--ink-soft); }
+  .history-summary b{ font-size: 22px; color: var(--ink); display:block; }
+  .history-list{
+    width: 100%; max-width: 460px; max-height: 260px; overflow-y:auto;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .history-row{
+    display:flex; justify-content:space-between; background: var(--card); border-radius: 12px;
+    padding: 10px 16px; font-size: 15px; box-shadow: 0 2px 0 var(--paper-line);
+  }
+  .history-row .rate{ color: var(--ok-deep); font-weight:800; }
 </style>
 </head>
 <body>
@@ -172,6 +217,10 @@
   <header>
     <h1>けいさんドリル</h1>
     <div class="header-right">
+      <div class="player-badge" id="playerBadge" style="display:none">
+        プレイヤー：<b id="playerBadgeName"></b>
+        <button class="change-player-btn" id="changePlayerBtn">かえる</button>
+      </div>
       <div class="stats">
         <div>もんだい <b id="statIndex">1</b> / <b id="statTotal">10</b></div>
         <div class="ok-count">せいかい <b id="statOk">0</b></div>
@@ -181,8 +230,20 @@
     </div>
   </header>
 
+  <!-- player select screen -->
+  <div id="playerSelect" class="screen active">
+    <div>
+      <p>だれが やる？</p>
+      <div class="player-list" id="playerList"></div>
+    </div>
+    <div class="add-player-row">
+      <input type="text" id="newPlayerName" placeholder="なまえ" maxlength="10">
+      <button class="add-player-btn" id="addPlayerBtn">ついか</button>
+    </div>
+  </div>
+
   <!-- setup screen -->
-  <div id="setup" class="screen active">
+  <div id="setup" class="screen">
     <div>
       <p>もんだいの すう を えらんでね</p>
       <div class="choice-row" id="countChoices">
@@ -254,7 +315,22 @@
   <div id="result" class="screen">
     <div class="result-score"><span id="resultOk">0</span><span class="frac"> / <span id="resultTotal">10</span> もん せいかい</span></div>
     <div class="result-msg" id="resultMsg"></div>
-    <button class="retry-btn" id="retryBtn">もういちど</button>
+    <div class="result-actions">
+      <button class="retry-btn" id="retryBtn">もういちど</button>
+      <button class="ghost-btn" id="showHistoryBtn">きろくを見る</button>
+    </div>
+  </div>
+
+  <!-- history screen -->
+  <div id="history" class="screen">
+    <p id="historyPlayerName"></p>
+    <div class="history-summary">
+      <div><b id="histTotalSessions">0</b>かいすう</div>
+      <div><b id="histTotalOk">0</b>せいかい（るいけい）</div>
+      <div><b id="histTotalRate">0%</b>せいかいりつ</div>
+    </div>
+    <div class="history-list" id="historyList"></div>
+    <button class="ghost-btn" id="historyBackBtn">もどる</button>
   </div>
 
 </div>
@@ -281,6 +357,7 @@
 <script>
 (function(){
   var state = {
+    player: null,
     total: 10,
     type: 'mix',
     level: 'easy',
@@ -292,6 +369,68 @@
     currentAnswer: '',
     correctValue: 0
   };
+
+  // ---------- player storage (localStorage) ----------
+  var STORAGE_KEY = 'mathdrill_players_v1';
+
+  function loadPlayers(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch(e){ return {}; }
+  }
+  function savePlayers(data){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
+  }
+  function ensurePlayer(data, name){
+    if(!data[name]){
+      data[name] = { totalSessions: 0, totalOk: 0, totalQ: 0, history: [] };
+    }
+    return data[name];
+  }
+
+  function renderPlayerList(){
+    var data = loadPlayers();
+    var names = Object.keys(data);
+    var list = document.getElementById('playerList');
+    list.innerHTML = '';
+    names.forEach(function(name){
+      var card = document.createElement('div');
+      card.className = 'player-card';
+      card.textContent = name;
+      card.addEventListener('click', function(){ selectPlayer(name); });
+      list.appendChild(card);
+    });
+  }
+
+  function selectPlayer(name){
+    state.player = name;
+    var data = loadPlayers();
+    ensurePlayer(data, name);
+    savePlayers(data);
+    document.getElementById('playerBadgeName').textContent = name;
+    document.getElementById('playerBadge').style.display = '';
+    showScreen('setup');
+  }
+
+  document.getElementById('addPlayerBtn').addEventListener('click', function(){
+    var input = document.getElementById('newPlayerName');
+    var name = input.value.trim();
+    if(!name) return;
+    var data = loadPlayers();
+    ensurePlayer(data, name);
+    savePlayers(data);
+    input.value = '';
+    renderPlayerList();
+    selectPlayer(name);
+  });
+  document.getElementById('newPlayerName').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') document.getElementById('addPlayerBtn').click();
+  });
+  document.getElementById('changePlayerBtn').addEventListener('click', function(){
+    renderPlayerList();
+    showScreen('playerSelect');
+  });
 
   // ---------- setup screen interactions ----------
   document.getElementById('countChoices').addEventListener('click', function(e){
@@ -327,6 +466,13 @@
   document.getElementById('retryBtn').addEventListener('click', function(){
     showScreen('setup');
   });
+  document.getElementById('showHistoryBtn').addEventListener('click', function(){
+    renderHistory();
+    showScreen('history');
+  });
+  document.getElementById('historyBackBtn').addEventListener('click', function(){
+    showScreen('result');
+  });
 
   document.getElementById('quitBtn').addEventListener('click', function(){
     document.getElementById('quitConfirm').classList.add('active');
@@ -343,6 +489,27 @@
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     document.getElementById('quitBtn').style.display = (id === 'play') ? '' : 'none';
+    document.getElementById('playerBadge').style.display = (id === 'playerSelect' || !state.player) ? 'none' : '';
+  }
+
+  function renderHistory(){
+    var data = loadPlayers();
+    var rec = ensurePlayer(data, state.player);
+    document.getElementById('historyPlayerName').textContent = state.player + ' の きろく';
+    document.getElementById('histTotalSessions').textContent = rec.totalSessions;
+    document.getElementById('histTotalOk').textContent = rec.totalOk;
+    var rate = rec.totalQ > 0 ? Math.round(rec.totalOk / rec.totalQ * 100) : 0;
+    document.getElementById('histTotalRate').textContent = rate + '%';
+    var list = document.getElementById('historyList');
+    list.innerHTML = '';
+    var recent = rec.history.slice(-15).reverse();
+    recent.forEach(function(s){
+      var row = document.createElement('div');
+      row.className = 'history-row';
+      var r = Math.round(s.ok / s.total * 100);
+      row.innerHTML = '<span>' + s.date + '</span><span>' + s.ok + ' / ' + s.total + 'もん</span><span class="rate">' + r + '%</span>';
+      list.appendChild(row);
+    });
   }
 
   // ---------- problem generation (小3-4以上) ----------
@@ -543,6 +710,20 @@
               rate >= 0.5 ? 'もうすこし れんしゅうしよう' :
               'あわてなくて だいじょうぶ、また ちょうせん！';
     document.getElementById('resultMsg').textContent = msg;
+    if(state.player){
+      var data = loadPlayers();
+      var rec = ensurePlayer(data, state.player);
+      rec.totalSessions += 1;
+      rec.totalOk += state.ok;
+      rec.totalQ += state.total;
+      rec.history.push({
+        date: new Date().toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'}),
+        ok: state.ok,
+        total: state.total
+      });
+      if(rec.history.length > 50) rec.history = rec.history.slice(-50);
+      savePlayers(data);
+    }
     showScreen('result');
   }
 
@@ -597,6 +778,9 @@
   ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
     canvas.addEventListener(ev, function(){ drawing = false; });
   });
+
+  // ---------- init ----------
+  renderPlayerList();
 
 })();
 </script>
