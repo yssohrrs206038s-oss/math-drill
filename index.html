@@ -179,15 +179,6 @@
     background: var(--card); font-size: 19px; font-weight:800; cursor:pointer; min-width: 120px;
   }
   .player-card:active{ transform: scale(.96); }
-  .add-player-row{ display:flex; gap:10px; align-items:center; }
-  .add-player-row input{
-    font-family: inherit; font-size: 18px; padding: 12px 16px; border-radius: 14px;
-    border: 2px solid var(--paper-line); width: 200px; text-align:center;
-  }
-  .add-player-btn{
-    padding: 12px 22px; border-radius: 14px; border:none; background: var(--ok);
-    color:#fff; font-size:17px; font-weight:700; cursor:pointer;
-  }
   .player-badge{ font-size: 14px; color: var(--ink-soft); }
   .player-badge b{ color: var(--ink); }
   .change-player-btn{
@@ -235,10 +226,6 @@
     <div>
       <p>だれが やる？</p>
       <div class="player-list" id="playerList"></div>
-    </div>
-    <div class="add-player-row">
-      <input type="text" id="newPlayerName" placeholder="なまえ" maxlength="10">
-      <button class="add-player-btn" id="addPlayerBtn">ついか</button>
     </div>
   </div>
 
@@ -389,18 +376,21 @@
     return data[name];
   }
 
+  var FIXED_PLAYERS = ['つむぎ', 'しの', 'さく'];
+
   function renderPlayerList(){
     var data = loadPlayers();
-    var names = Object.keys(data);
     var list = document.getElementById('playerList');
     list.innerHTML = '';
-    names.forEach(function(name){
+    FIXED_PLAYERS.forEach(function(name){
+      ensurePlayer(data, name);
       var card = document.createElement('div');
       card.className = 'player-card';
       card.textContent = name;
       card.addEventListener('click', function(){ selectPlayer(name); });
       list.appendChild(card);
     });
+    savePlayers(data);
   }
 
   function selectPlayer(name){
@@ -413,20 +403,6 @@
     showScreen('setup');
   }
 
-  document.getElementById('addPlayerBtn').addEventListener('click', function(){
-    var input = document.getElementById('newPlayerName');
-    var name = input.value.trim();
-    if(!name) return;
-    var data = loadPlayers();
-    ensurePlayer(data, name);
-    savePlayers(data);
-    input.value = '';
-    renderPlayerList();
-    selectPlayer(name);
-  });
-  document.getElementById('newPlayerName').addEventListener('keydown', function(e){
-    if(e.key === 'Enter') document.getElementById('addPlayerBtn').click();
-  });
   document.getElementById('changePlayerBtn').addEventListener('click', function(){
     renderPlayerList();
     showScreen('playerSelect');
