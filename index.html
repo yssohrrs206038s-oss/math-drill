@@ -212,7 +212,8 @@
       <p>けいさんの タイプ</p>
       <div class="choice-row" id="modeChoices">
         <div class="choice selected" data-mode="normal">ふつう（こたえを もとめる）</div>
-        <div class="choice" data-mode="mushikui">虫食い算（□に はいる かずを もとめる）</div>
+        <div class="choice" data-mode="mushikui">虫食い算：かず まるごと</div>
+        <div class="choice" data-mode="mushikui2">虫食い算：すうじ 1つだけ</div>
       </div>
     </div>
     <button class="start-btn" id="startBtn">はじめる</button>
@@ -389,6 +390,50 @@
     return { text: dividend+' ÷ '+d+' = ?', answer: q };
   }
 
+  function pickDigitTarget(candidates){
+    var target = candidates[randInt(0, candidates.length-1)];
+    var digits = String(target.num).split('');
+    var pos = randInt(0, digits.length-1);
+    var hidden = digits[pos];
+    digits[pos] = '□';
+    return { key: target.key, masked: digits.join(''), hidden: parseInt(hidden, 10) };
+  }
+
+  function makeMul2(level){
+    // 1桁だけ隠すには2桁以上の数が要るので、やさしいレベルは自動でふつうに底上げする
+    var lv = (level === 'easy') ? 'normal' : level;
+    var a, b;
+    if(lv === 'normal'){ a = randInt(10, 99); b = randInt(2, 9); }
+    else { a = randInt(11, 99); b = randInt(11, 99); }
+    var c = a*b;
+    var candidates = [];
+    if(String(a).length >= 2) candidates.push({num:a, key:'a'});
+    if(String(b).length >= 2) candidates.push({num:b, key:'b'});
+    candidates.push({num:c, key:'c'});
+    var t = pickDigitTarget(candidates);
+    var aText = t.key==='a' ? t.masked : a;
+    var bText = t.key==='b' ? t.masked : b;
+    var cText = t.key==='c' ? t.masked : c;
+    return { text: aText+' × '+bText+' = '+cText, answer: t.hidden };
+  }
+
+  function makeDiv2(level){
+    var lv = (level === 'easy') ? 'normal' : level;
+    var d, q;
+    if(lv === 'normal'){ d = randInt(2, 9); q = randInt(10, 20); }
+    else { d = randInt(11, 20); q = randInt(2, 15); }
+    var dividend = d*q;
+    var candidates = [];
+    candidates.push({num:dividend, key:'dividend'});
+    if(String(d).length >= 2) candidates.push({num:d, key:'d'});
+    if(String(q).length >= 2) candidates.push({num:q, key:'q'});
+    var t = pickDigitTarget(candidates);
+    var dividendText = t.key==='dividend' ? t.masked : dividend;
+    var dText = t.key==='d' ? t.masked : d;
+    var qText = t.key==='q' ? t.masked : q;
+    return { text: dividendText+' ÷ '+dText+' = '+qText, answer: t.hidden };
+  }
+
   function pickLevel(){
     if(state.level !== 'all') return state.level;
     var levels = ['easy', 'normal', 'hard'];
@@ -401,7 +446,11 @@
       var op = state.type;
       if(op === 'mix') op = Math.random() < 0.5 ? 'mul' : 'div';
       var lv = pickLevel();
-      list.push(op === 'mul' ? makeMul(lv, state.mode) : makeDiv(lv, state.mode));
+      if(state.mode === 'mushikui2'){
+        list.push(op === 'mul' ? makeMul2(lv) : makeDiv2(lv));
+      } else {
+        list.push(op === 'mul' ? makeMul(lv, state.mode) : makeDiv(lv, state.mode));
+      }
     }
     return list;
   }
