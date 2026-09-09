@@ -46,6 +46,12 @@
   .stats b{ color: var(--ink); font-size: 17px; }
   .stats .ok-count{ color: var(--ok-deep); }
   .stats .ng-count{ color: var(--ng-deep); }
+  .header-right{ display:flex; align-items:center; gap:16px; }
+  .quit-btn{
+    padding: 8px 18px; border-radius: 12px; border: 2px solid var(--paper-line);
+    background: #fff; font-size: 14px; font-weight:700; color: var(--ink-soft); cursor:pointer;
+  }
+  .quit-btn:active{ transform: scale(.96); }
 
   /* ---------- screens ---------- */
   .screen{ flex:1; display:none; min-height:0; }
@@ -140,6 +146,13 @@
     padding: 12px 40px; border-radius: 14px; border:none; background: var(--ink);
     color:#fff; font-size:17px; font-weight:700; cursor:pointer;
   }
+  .confirm-row{ display:flex; gap: 14px; justify-content:center; }
+  .confirm-btn{
+    padding: 12px 30px; border-radius: 14px; font-size:17px; font-weight:700; cursor:pointer;
+  }
+  .confirm-btn.no{ border: 2px solid var(--paper-line); background:#fff; color: var(--ink-soft); }
+  .confirm-btn.yes{ border:none; background: var(--ng); color:#fff; }
+  .confirm-btn:active{ transform: scale(.96); }
 
   /* result */
   #result{ align-items:center; justify-content:center; text-align:center; gap: 18px; }
@@ -157,10 +170,13 @@
 
   <header>
     <h1>けいさんドリル</h1>
-    <div class="stats">
-      <div>もんだい <b id="statIndex">1</b> / <b id="statTotal">10</b></div>
-      <div class="ok-count">せいかい <b id="statOk">0</b></div>
-      <div class="ng-count">まちがい <b id="statNg">0</b></div>
+    <div class="header-right">
+      <div class="stats">
+        <div>もんだい <b id="statIndex">1</b> / <b id="statTotal">10</b></div>
+        <div class="ok-count">せいかい <b id="statOk">0</b></div>
+        <div class="ng-count">まちがい <b id="statNg">0</b></div>
+      </div>
+      <button class="quit-btn" id="quitBtn" style="display:none">やめる</button>
     </div>
   </header>
 
@@ -233,6 +249,17 @@
   </div>
 </div>
 
+<div class="feedback" id="quitConfirm">
+  <div class="feedback-card">
+    <div class="fb-title">トップに もどる？</div>
+    <div class="fb-sub">いままでの もんだいは きえちゃうよ</div>
+    <div class="confirm-row">
+      <button class="confirm-btn no" id="quitNo">つづける</button>
+      <button class="confirm-btn yes" id="quitYes">もどる</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   var state = {
@@ -267,9 +294,21 @@
     showScreen('setup');
   });
 
+  document.getElementById('quitBtn').addEventListener('click', function(){
+    document.getElementById('quitConfirm').classList.add('active');
+  });
+  document.getElementById('quitNo').addEventListener('click', function(){
+    document.getElementById('quitConfirm').classList.remove('active');
+  });
+  document.getElementById('quitYes').addEventListener('click', function(){
+    document.getElementById('quitConfirm').classList.remove('active');
+    showScreen('setup');
+  });
+
   function showScreen(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    document.getElementById('quitBtn').style.display = (id === 'play') ? '' : 'none';
   }
 
   // ---------- problem generation (小3-4以上) ----------
