@@ -208,6 +208,13 @@
         <div class="choice" data-level="all">まぜまぜ（ぜんぶ）</div>
       </div>
     </div>
+    <div>
+      <p>けいさんの タイプ</p>
+      <div class="choice-row" id="modeChoices">
+        <div class="choice selected" data-mode="normal">ふつう（こたえを もとめる）</div>
+        <div class="choice" data-mode="mushikui">虫食い算（□に はいる かずを もとめる）</div>
+      </div>
+    </div>
     <button class="start-btn" id="startBtn">はじめる</button>
   </div>
 
@@ -276,6 +283,7 @@
     total: 10,
     type: 'mix',
     level: 'easy',
+    mode: 'normal',
     index: 0,
     ok: 0,
     ng: 0,
@@ -306,6 +314,13 @@
     el.classList.add('selected');
     state.level = el.dataset.level;
   });
+  document.getElementById('modeChoices').addEventListener('click', function(e){
+    var el = e.target.closest('.choice');
+    if(!el) return;
+    document.querySelectorAll('#modeChoices .choice').forEach(c=>c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.mode = el.dataset.mode;
+  });
 
   document.getElementById('startBtn').addEventListener('click', startGame);
   document.getElementById('retryBtn').addEventListener('click', function(){
@@ -332,7 +347,7 @@
   // ---------- problem generation (小3-4以上) ----------
   function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
-  function makeMul(level){
+  function makeMul(level, mode){
     var a, b;
     if(level === 'easy'){          // 1桁 × 1桁
       a = randInt(2, 9); b = randInt(2, 9);
@@ -341,9 +356,18 @@
     } else {                       // hard: 2桁 × 2桁
       a = randInt(11, 99); b = randInt(11, 99);
     }
-    return { text: a+' × '+b+' = ?', answer: a*b };
+    var c = a*b;
+    if(mode === 'mushikui'){
+      // aかbのどちらかを□にする（かける数・かけられる数を求める虫食い算）
+      if(Math.random() < 0.5){
+        return { text: '□ × '+b+' = '+c, answer: a };
+      } else {
+        return { text: a+' × □ = '+c, answer: b };
+      }
+    }
+    return { text: a+' × '+b+' = ?', answer: c };
   }
-  function makeDiv(level){
+  function makeDiv(level, mode){
     // 商が割り切れるように「割る数 × 商」で作る
     var d, q;
     if(level === 'easy'){          // 割る数1桁・商1桁
@@ -353,7 +377,16 @@
     } else {                       // hard: 割る数2桁・商1〜2桁
       d = randInt(11, 20); q = randInt(2, 15);
     }
-    return { text: (d*q)+' ÷ '+d+' = ?', answer: q };
+    var dividend = d*q;
+    if(mode === 'mushikui'){
+      // 割る数か割られる数のどちらかを□にする
+      if(Math.random() < 0.5){
+        return { text: dividend+' ÷ □ = '+q, answer: d };
+      } else {
+        return { text: '□ ÷ '+d+' = '+q, answer: dividend };
+      }
+    }
+    return { text: dividend+' ÷ '+d+' = ?', answer: q };
   }
 
   function pickLevel(){
@@ -368,7 +401,7 @@
       var op = state.type;
       if(op === 'mix') op = Math.random() < 0.5 ? 'mul' : 'div';
       var lv = pickLevel();
-      list.push(op === 'mul' ? makeMul(lv) : makeDiv(lv));
+      list.push(op === 'mul' ? makeMul(lv, state.mode) : makeDiv(lv, state.mode));
     }
     return list;
   }
