@@ -199,6 +199,15 @@
         <div class="choice" data-type="div">わり算だけ</div>
       </div>
     </div>
+    <div>
+      <p>むずかしさ</p>
+      <div class="choice-row" id="levelChoices">
+        <div class="choice selected" data-level="easy">やさしい（1けた）</div>
+        <div class="choice" data-level="normal">ふつう（2けた×1けた）</div>
+        <div class="choice" data-level="hard">むずかしい（2けた×2けた）</div>
+        <div class="choice" data-level="all">まぜまぜ（ぜんぶ）</div>
+      </div>
+    </div>
     <button class="start-btn" id="startBtn">はじめる</button>
   </div>
 
@@ -266,6 +275,7 @@
   var state = {
     total: 10,
     type: 'mix',
+    level: 'easy',
     index: 0,
     ok: 0,
     ng: 0,
@@ -288,6 +298,13 @@
     document.querySelectorAll('#typeChoices .choice').forEach(c=>c.classList.remove('selected'));
     el.classList.add('selected');
     state.type = el.dataset.type;
+  });
+  document.getElementById('levelChoices').addEventListener('click', function(e){
+    var el = e.target.closest('.choice');
+    if(!el) return;
+    document.querySelectorAll('#levelChoices .choice').forEach(c=>c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.level = el.dataset.level;
   });
 
   document.getElementById('startBtn').addEventListener('click', startGame);
@@ -315,27 +332,34 @@
   // ---------- problem generation (小3-4以上) ----------
   function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
-  function makeMul(){
-    // 30%は2桁×2桁、残りは2桁×1桁
-    if(Math.random() < 0.3){
-      var a = randInt(11, 19), b = randInt(11, 19);
-      return { text: a+' × '+b+' = ?', answer: a*b };
-    } else {
-      var a2 = randInt(10, 99), b2 = randInt(2, 9);
-      return { text: a2+' × '+b2+' = ?', answer: a2*b2 };
+  function makeMul(level){
+    var a, b;
+    if(level === 'easy'){          // 1桁 × 1桁
+      a = randInt(2, 9); b = randInt(2, 9);
+    } else if(level === 'normal'){ // 2桁 × 1桁
+      a = randInt(10, 99); b = randInt(2, 9);
+    } else {                       // hard: 2桁 × 2桁
+      a = randInt(11, 99); b = randInt(11, 99);
     }
+    return { text: a+' × '+b+' = ?', answer: a*b };
   }
-  function makeDiv(){
-    // 商が割り切れるように作る
-    if(Math.random() < 0.3){
-      var d = randInt(11, 19), q = randInt(2, 9);
-      var dividend = d*q;
-      return { text: dividend+' ÷ '+d+' = ?', answer: q };
-    } else {
-      var d2 = randInt(2, 9), q2 = randInt(2, 20);
-      var dividend2 = d2*q2;
-      return { text: dividend2+' ÷ '+d2+' = ?', answer: q2 };
+  function makeDiv(level){
+    // 商が割り切れるように「割る数 × 商」で作る
+    var d, q;
+    if(level === 'easy'){          // 割る数1桁・商1桁
+      d = randInt(2, 9); q = randInt(2, 9);
+    } else if(level === 'normal'){ // 割る数1桁・商2桁
+      d = randInt(2, 9); q = randInt(10, 20);
+    } else {                       // hard: 割る数2桁・商1〜2桁
+      d = randInt(11, 20); q = randInt(2, 15);
     }
+    return { text: (d*q)+' ÷ '+d+' = ?', answer: q };
+  }
+
+  function pickLevel(){
+    if(state.level !== 'all') return state.level;
+    var levels = ['easy', 'normal', 'hard'];
+    return levels[randInt(0, 2)];
   }
 
   function buildProblems(){
@@ -343,7 +367,8 @@
     for(var i=0; i<state.total; i++){
       var op = state.type;
       if(op === 'mix') op = Math.random() < 0.5 ? 'mul' : 'div';
-      list.push(op === 'mul' ? makeMul() : makeDiv());
+      var lv = pickLevel();
+      list.push(op === 'mul' ? makeMul(lv) : makeDiv(lv));
     }
     return list;
   }
