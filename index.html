@@ -242,9 +242,13 @@
     <div>
       <p>もんだいの しゅるい</p>
       <div class="choice-row" id="typeChoices">
-        <div class="choice selected" data-type="mix">かけ算・わり算 まぜまぜ</div>
+        <div class="choice" data-type="add">たし算だけ</div>
+        <div class="choice" data-type="sub">ひき算だけ</div>
+        <div class="choice" data-type="addsub">たし算・ひき算 まぜまぜ</div>
         <div class="choice" data-type="mul">かけ算だけ</div>
         <div class="choice" data-type="div">わり算だけ</div>
+        <div class="choice selected" data-type="muldiv">かけ算・わり算 まぜまぜ</div>
+        <div class="choice" data-type="all">ぜんぶ まぜまぜ</div>
       </div>
     </div>
     <div>
@@ -346,7 +350,7 @@
   var state = {
     player: null,
     total: 10,
-    type: 'mix',
+    type: 'muldiv',
     level: 'easy',
     mode: 'normal',
     index: 0,
@@ -491,6 +495,41 @@
   // ---------- problem generation (小3-4以上) ----------
   function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
+  function levelNums(level){
+    // add/sub/mul共通の桁数レンジ決定（2つの数を返す）
+    if(level === 'easy'){ return [randInt(2, 9), randInt(2, 9)]; }
+    if(level === 'normal'){ return [randInt(10, 99), randInt(2, 9)]; }
+    return [randInt(11, 99), randInt(11, 99)];
+  }
+
+  function makeAdd(level, mode){
+    var nums = levelNums(level);
+    var a = nums[0], b = nums[1];
+    var c = a + b;
+    if(mode === 'mushikui'){
+      if(Math.random() < 0.5){
+        return { text: '□ + '+b+' = '+c, answer: a };
+      } else {
+        return { text: a+' + □ = '+c, answer: b };
+      }
+    }
+    return { text: a+' + '+b+' = ?', answer: c };
+  }
+  function makeSub(level, mode){
+    var nums = levelNums(level);
+    var a = nums[0], b = nums[1];
+    if(b > a){ var tmp = a; a = b; b = tmp; } // 答えがマイナスにならないようにする
+    var c = a - b;
+    if(mode === 'mushikui'){
+      if(Math.random() < 0.5){
+        return { text: '□ - '+b+' = '+c, answer: a };
+      } else {
+        return { text: a+' - □ = '+c, answer: b };
+      }
+    }
+    return { text: a+' - '+b+' = ?', answer: c };
+  }
+
   function makeMul(level, mode){
     var a, b;
     if(level === 'easy'){          // 1桁 × 1桁
@@ -577,22 +616,75 @@
     return { text: dividendText+' ÷ '+dText+' = '+qText, answer: t.hidden };
   }
 
+  function makeAdd2(level){
+    var lv = (level === 'easy') ? 'normal' : level;
+    var a, b;
+    if(lv === 'normal'){ a = randInt(10, 99); b = randInt(2, 9); }
+    else { a = randInt(11, 99); b = randInt(11, 99); }
+    var c = a+b;
+    var candidates = [];
+    if(String(a).length >= 2) candidates.push({num:a, key:'a'});
+    if(String(b).length >= 2) candidates.push({num:b, key:'b'});
+    candidates.push({num:c, key:'c'});
+    var t = pickDigitTarget(candidates);
+    var aText = t.key==='a' ? t.masked : a;
+    var bText = t.key==='b' ? t.masked : b;
+    var cText = t.key==='c' ? t.masked : c;
+    return { text: aText+' + '+bText+' = '+cText, answer: t.hidden };
+  }
+
+  function makeSub2(level){
+    var lv = (level === 'easy') ? 'normal' : level;
+    var a, b;
+    if(lv === 'normal'){ a = randInt(10, 99); b = randInt(2, 9); }
+    else { a = randInt(11, 99); b = randInt(11, 99); }
+    if(b > a){ var tmp = a; a = b; b = tmp; }
+    var c = a-b;
+    var candidates = [];
+    if(String(a).length >= 2) candidates.push({num:a, key:'a'});
+    if(String(b).length >= 2) candidates.push({num:b, key:'b'});
+    if(String(c).length >= 2) candidates.push({num:c, key:'c'});
+    if(candidates.length === 0) candidates.push({num:a, key:'a'});
+    var t = pickDigitTarget(candidates);
+    var aText = t.key==='a' ? t.masked : a;
+    var bText = t.key==='b' ? t.masked : b;
+    var cText = t.key==='c' ? t.masked : c;
+    return { text: aText+' - '+bText+' = '+cText, answer: t.hidden };
+  }
+
   function pickLevel(){
     if(state.level !== 'all') return state.level;
     var levels = ['easy', 'normal', 'hard'];
     return levels[randInt(0, 2)];
   }
 
+  function pickOp(type){
+    if(type === 'add') return 'add';
+    if(type === 'sub') return 'sub';
+    if(type === 'addsub') return Math.random() < 0.5 ? 'add' : 'sub';
+    if(type === 'mul') return 'mul';
+    if(type === 'div') return 'div';
+    if(type === 'muldiv') return Math.random() < 0.5 ? 'mul' : 'div';
+    if(type === 'all'){
+      var ops = ['add', 'sub', 'mul', 'div'];
+      return ops[randInt(0, 3)];
+    }
+    return 'mul';
+  }
+
   function buildProblems(){
     var list = [];
+    var makers = {
+      normal: { add: makeAdd, sub: makeSub, mul: makeMul, div: makeDiv },
+      mushikui2: { add: makeAdd2, sub: makeSub2, mul: makeMul2, div: makeDiv2 }
+    };
     for(var i=0; i<state.total; i++){
-      var op = state.type;
-      if(op === 'mix') op = Math.random() < 0.5 ? 'mul' : 'div';
+      var op = pickOp(state.type);
       var lv = pickLevel();
       if(state.mode === 'mushikui2'){
-        list.push(op === 'mul' ? makeMul2(lv) : makeDiv2(lv));
+        list.push(makers.mushikui2[op](lv));
       } else {
-        list.push(op === 'mul' ? makeMul(lv, state.mode) : makeDiv(lv, state.mode));
+        list.push(makers.normal[op](lv, state.mode));
       }
     }
     return list;
