@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>けいさんドリル</title>
+<style>
+  :root{
+    --paper: #EEF3F5;
+    --paper-line: #C9D6DC;
+    --ink: #1D2B3A;
+    --ink-soft: #55677A;
+    --accent: #F4B942;
+    --accent-deep: #D99A1E;
+    --ok: #2A9D8F;
+    --ok-deep: #1F7A70;
+    --ng: #E15554;
+    --ng-deep: #B93E3D;
+    --card: #FFFFFF;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body{ height: 100%; margin:0; }
+  body{
+    font-family: 'Hiragino Maru Gothic ProN', 'Yu Gothic', 'Rounded Mplus 1c', sans-serif;
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/100% 40px,
+      var(--paper);
+    color: var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 16px;
+    overflow:hidden;
+  }
+  .stage{ width:100%; max-width: 1100px; height: 100%; max-height: 720px; display:flex; flex-direction:column; }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 6px 4px 14px;
+    border-bottom: 3px dashed var(--paper-line);
+    margin-bottom: 14px;
+  }
+  h1{ font-size: 22px; margin:0; letter-spacing: .04em; }
+  .stats{ display:flex; gap: 18px; font-size: 15px; color: var(--ink-soft); }
+  .stats b{ color: var(--ink); font-size: 17px; }
+  .stats .ok-count{ color: var(--ok-deep); }
+  .stats .ng-count{ color: var(--ng-deep); }
+
+  /* ---------- screens ---------- */
+  .screen{ flex:1; display:none; min-height:0; }
+  .screen.active{ display:flex; flex-direction:column; }
+
+  /* setup */
+  #setup{ align-items:center; justify-content:center; text-align:center; gap: 28px; }
+  #setup p{ color: var(--ink-soft); font-size: 16px; margin:0; }
+  .choice-row{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .choice{
+    padding: 16px 26px; border-radius: 16px; border: 3px solid var(--paper-line);
+    background: var(--card); font-size: 18px; font-weight:700; cursor:pointer;
+    transition: transform .1s, border-color .15s;
+  }
+  .choice.selected{ border-color: var(--accent-deep); background: #FFF6E0; }
+  .choice:active{ transform: scale(.96); }
+  .start-btn{
+    margin-top: 6px; padding: 18px 54px; border-radius: 20px; border:none;
+    background: var(--accent); color: var(--ink); font-size: 22px; font-weight:800;
+    box-shadow: 0 4px 0 var(--accent-deep); cursor:pointer;
+  }
+  .start-btn:active{ transform: translateY(3px); box-shadow: 0 1px 0 var(--accent-deep); }
+
+  /* play */
+  #play{ flex-direction: row; gap: 18px; min-height:0; }
+  .left-pane{ flex: 1.15; display:flex; flex-direction:column; min-height:0; }
+  .right-pane{ flex:1; display:flex; flex-direction:column; gap: 14px; min-height:0; }
+
+  .problem-card{
+    background: var(--card); border-radius: 20px; padding: 22px 26px;
+    box-shadow: 0 2px 0 var(--paper-line);
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 12px;
+  }
+  .problem-text{ font-size: 42px; font-weight: 800; letter-spacing: .02em; }
+  .problem-index{ font-size: 14px; color: var(--ink-soft); }
+
+  .scratch-wrap{
+    flex:1; background: var(--card); border-radius: 20px; position:relative; min-height: 0;
+    box-shadow: 0 2px 0 var(--paper-line); overflow:hidden;
+  }
+  .scratch-label{
+    position:absolute; top:10px; left:14px; font-size:12px; color: var(--ink-soft);
+    letter-spacing:.05em; z-index:2; pointer-events:none;
+  }
+  canvas{ width:100%; height:100%; display:block; touch-action:none; }
+  .clear-btn{
+    position:absolute; bottom:12px; right:12px; z-index:2;
+    padding: 10px 16px; border-radius: 12px; border: 2px solid var(--paper-line);
+    background: #fff; font-size: 14px; font-weight:700; color: var(--ink-soft); cursor:pointer;
+  }
+
+  .answer-card{
+    background: var(--card); border-radius: 20px; padding: 16px 20px;
+    box-shadow: 0 2px 0 var(--paper-line);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 40px; font-weight:800; min-height: 64px; letter-spacing: .06em;
+    color: var(--ink);
+  }
+  .answer-card.placeholder{ color: var(--paper-line); }
+
+  .keypad{
+    flex:1; display:grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr);
+    gap: 10px; min-height: 0;
+  }
+  .key{
+    background: var(--card); border-radius: 16px; border:none; font-size: 28px; font-weight:800;
+    box-shadow: 0 3px 0 var(--paper-line); cursor:pointer; color: var(--ink);
+  }
+  .key:active{ transform: translateY(2px); box-shadow: 0 1px 0 var(--paper-line); }
+  .key.back{ font-size: 22px; color: var(--ink-soft); }
+  .key.decide{ background: var(--accent); box-shadow: 0 3px 0 var(--accent-deep); grid-row: span 1; }
+  .key.decide:active{ box-shadow: 0 1px 0 var(--accent-deep); }
+
+  /* feedback overlay */
+  .feedback{
+    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    background: rgba(29,43,58,.42); z-index: 10;
+  }
+  .feedback.active{ display:flex; }
+  .feedback-card{
+    background:#fff; border-radius: 26px; padding: 36px 48px; text-align:center;
+    min-width: 280px;
+  }
+  .feedback-card.ok{ box-shadow: 0 0 0 6px var(--ok) inset; }
+  .feedback-card.ng{ box-shadow: 0 0 0 6px var(--ng) inset; }
+  .fb-title{ font-size: 30px; font-weight: 900; margin-bottom: 6px; }
+  .fb-title.ok{ color: var(--ok-deep); }
+  .fb-title.ng{ color: var(--ng-deep); }
+  .fb-sub{ font-size: 17px; color: var(--ink-soft); margin-bottom: 18px; }
+  .fb-next{
+    padding: 12px 40px; border-radius: 14px; border:none; background: var(--ink);
+    color:#fff; font-size:17px; font-weight:700; cursor:pointer;
+  }
+
+  /* result */
+  #result{ align-items:center; justify-content:center; text-align:center; gap: 18px; }
+  .result-score{ font-size: 56px; font-weight:900; }
+  .result-score .frac{ color: var(--ink-soft); font-size: 28px; }
+  .result-msg{ font-size: 18px; color: var(--ink-soft); }
+  .retry-btn{
+    margin-top: 8px; padding: 16px 44px; border-radius: 18px; border:none;
+    background: var(--ink); color:#fff; font-size:19px; font-weight:800; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <header>
+    <h1>けいさんドリル</h1>
+    <div class="stats">
+      <div>もんだい <b id="statIndex">1</b> / <b id="statTotal">10</b></div>
+      <div class="ok-count">せいかい <b id="statOk">0</b></div>
+      <div class="ng-count">まちがい <b id="statNg">0</b></div>
+    </div>
+  </header>
+
+  <!-- setup screen -->
+  <div id="setup" class="screen active">
+    <div>
+      <p>もんだいの すう を えらんでね</p>
+      <div class="choice-row" id="countChoices">
+        <div class="choice selected" data-count="10">10もん</div>
+        <div class="choice" data-count="20">20もん</div>
+        <div class="choice" data-count="30">30もん</div>
+      </div>
+    </div>
+    <div>
+      <p>もんだいの しゅるい</p>
+      <div class="choice-row" id="typeChoices">
+        <div class="choice selected" data-type="mix">かけ算・わり算 まぜまぜ</div>
+        <div class="choice" data-type="mul">かけ算だけ</div>
+        <div class="choice" data-type="div">わり算だけ</div>
+      </div>
+    </div>
+    <button class="start-btn" id="startBtn">はじめる</button>
+  </div>
+
+  <!-- play screen -->
+  <div id="play" class="screen">
+    <div class="left-pane">
+      <div class="problem-card">
+        <div class="problem-text" id="problemText">?</div>
+      </div>
+      <div class="scratch-wrap">
+        <div class="scratch-label">ひっさん スペース</div>
+        <canvas id="scratchCanvas"></canvas>
+        <button class="clear-btn" id="clearBtn">けす</button>
+      </div>
+    </div>
+    <div class="right-pane">
+      <div class="answer-card placeholder" id="answerDisplay">こたえ</div>
+      <div class="keypad" id="keypad">
+        <button class="key" data-k="7">7</button>
+        <button class="key" data-k="8">8</button>
+        <button class="key" data-k="9">9</button>
+        <button class="key" data-k="4">4</button>
+        <button class="key" data-k="5">5</button>
+        <button class="key" data-k="6">6</button>
+        <button class="key" data-k="1">1</button>
+        <button class="key" data-k="2">2</button>
+        <button class="key" data-k="3">3</button>
+        <button class="key back" data-k="back">⌫</button>
+        <button class="key" data-k="0">0</button>
+        <button class="key decide" data-k="ok">けってい</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- result screen -->
+  <div id="result" class="screen">
+    <div class="result-score"><span id="resultOk">0</span><span class="frac"> / <span id="resultTotal">10</span> もん せいかい</span></div>
+    <div class="result-msg" id="resultMsg"></div>
+    <button class="retry-btn" id="retryBtn">もういちど</button>
+  </div>
+
+</div>
+
+<div class="feedback" id="feedback">
+  <div class="feedback-card" id="feedbackCard">
+    <div class="fb-title" id="fbTitle"></div>
+    <div class="fb-sub" id="fbSub"></div>
+    <button class="fb-next" id="fbNext">つぎへ</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var state = {
+    total: 10,
+    type: 'mix',
+    index: 0,
+    ok: 0,
+    ng: 0,
+    problems: [],
+    currentAnswer: '',
+    correctValue: 0
+  };
+
+  // ---------- setup screen interactions ----------
+  document.getElementById('countChoices').addEventListener('click', function(e){
+    var el = e.target.closest('.choice');
+    if(!el) return;
+    document.querySelectorAll('#countChoices .choice').forEach(c=>c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.total = parseInt(el.dataset.count, 10);
+  });
+  document.getElementById('typeChoices').addEventListener('click', function(e){
+    var el = e.target.closest('.choice');
+    if(!el) return;
+    document.querySelectorAll('#typeChoices .choice').forEach(c=>c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.type = el.dataset.type;
+  });
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', function(){
+    showScreen('setup');
+  });
+
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ---------- problem generation (小3-4以上) ----------
+  function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+  function makeMul(){
+    // 30%は2桁×2桁、残りは2桁×1桁
+    if(Math.random() < 0.3){
+      var a = randInt(11, 19), b = randInt(11, 19);
+      return { text: a+' × '+b+' = ?', answer: a*b };
+    } else {
+      var a2 = randInt(10, 99), b2 = randInt(2, 9);
+      return { text: a2+' × '+b2+' = ?', answer: a2*b2 };
+    }
+  }
+  function makeDiv(){
+    // 商が割り切れるように作る
+    if(Math.random() < 0.3){
+      var d = randInt(11, 19), q = randInt(2, 9);
+      var dividend = d*q;
+      return { text: dividend+' ÷ '+d+' = ?', answer: q };
+    } else {
+      var d2 = randInt(2, 9), q2 = randInt(2, 20);
+      var dividend2 = d2*q2;
+      return { text: dividend2+' ÷ '+d2+' = ?', answer: q2 };
+    }
+  }
+
+  function buildProblems(){
+    var list = [];
+    for(var i=0; i<state.total; i++){
+      var op = state.type;
+      if(op === 'mix') op = Math.random() < 0.5 ? 'mul' : 'div';
+      list.push(op === 'mul' ? makeMul() : makeDiv());
+    }
+    return list;
+  }
+
+  function startGame(){
+    state.index = 0;
+    state.ok = 0;
+    state.ng = 0;
+    state.problems = buildProblems();
+    document.getElementById('statTotal').textContent = state.total;
+    showScreen('play');
+    resizeCanvas();
+    loadProblem();
+  }
+
+  function loadProblem(){
+    var p = state.problems[state.index];
+    state.correctValue = p.answer;
+    state.currentAnswer = '';
+    document.getElementById('problemText').textContent = p.text;
+    document.getElementById('statIndex').textContent = state.index + 1;
+    document.getElementById('statOk').textContent = state.ok;
+    document.getElementById('statNg').textContent = state.ng;
+    updateAnswerDisplay();
+    clearCanvas();
+  }
+
+  function updateAnswerDisplay(){
+    var el = document.getElementById('answerDisplay');
+    if(state.currentAnswer.length === 0){
+      el.textContent = 'こたえ';
+      el.classList.add('placeholder');
+    } else {
+      el.textContent = state.currentAnswer;
+      el.classList.remove('placeholder');
+    }
+  }
+
+  // ---------- keypad ----------
+  document.getElementById('keypad').addEventListener('click', function(e){
+    var btn = e.target.closest('.key');
+    if(!btn) return;
+    var k = btn.dataset.k;
+    if(k === 'back'){
+      state.currentAnswer = state.currentAnswer.slice(0, -1);
+      updateAnswerDisplay();
+    } else if(k === 'ok'){
+      submitAnswer();
+    } else {
+      if(state.currentAnswer.length < 6){
+        state.currentAnswer += k;
+        updateAnswerDisplay();
+      }
+    }
+  });
+
+  function submitAnswer(){
+    if(state.currentAnswer.length === 0) return;
+    var given = parseInt(state.currentAnswer, 10);
+    var correct = given === state.correctValue;
+    if(correct) state.ok++; else state.ng++;
+    showFeedback(correct);
+  }
+
+  function showFeedback(correct){
+    var card = document.getElementById('feedbackCard');
+    card.className = 'feedback-card ' + (correct ? 'ok' : 'ng');
+    document.getElementById('fbTitle').className = 'fb-title ' + (correct ? 'ok' : 'ng');
+    document.getElementById('fbTitle').textContent = correct ? 'せいかい！' : 'ざんねん';
+    document.getElementById('fbSub').textContent = correct ? '' : 'こたえは ' + state.correctValue + ' だよ';
+    document.getElementById('feedback').classList.add('active');
+  }
+
+  document.getElementById('fbNext').addEventListener('click', function(){
+    document.getElementById('feedback').classList.remove('active');
+    state.index++;
+    if(state.index >= state.total){
+      finishGame();
+    } else {
+      loadProblem();
+    }
+  });
+
+  function finishGame(){
+    document.getElementById('resultOk').textContent = state.ok;
+    document.getElementById('resultTotal').textContent = state.total;
+    var rate = state.ok / state.total;
+    var msg = rate === 1 ? 'ぜんもん せいかい！すごい！' :
+              rate >= 0.8 ? 'よくできました！' :
+              rate >= 0.5 ? 'もうすこし れんしゅうしよう' :
+              'あわてなくて だいじょうぶ、また ちょうせん！';
+    document.getElementById('resultMsg').textContent = msg;
+    showScreen('result');
+  }
+
+  // ---------- scratch canvas ----------
+  var canvas = document.getElementById('scratchCanvas');
+  var ctx = canvas.getContext('2d');
+  var drawing = false;
+  var lastX = 0, lastY = 0;
+
+  function resizeCanvas(){
+    var rect = canvas.getBoundingClientRect();
+    var ratio = window.devicePixelRatio || 1;
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1D2B3A';
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function clearCanvas(){
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    ctx.restore();
+  }
+  document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+
+  function getPos(e){
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  canvas.addEventListener('pointerdown', function(e){
+    drawing = true;
+    var pos = getPos(e);
+    lastX = pos.x; lastY = pos.y;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', function(e){
+    if(!drawing) return;
+    var pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    lastX = pos.x; lastY = pos.y;
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
+    canvas.addEventListener(ev, function(){ drawing = false; });
+  });
+
+})();
+</script>
+</body>
+</html>
